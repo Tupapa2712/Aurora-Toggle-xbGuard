@@ -10,9 +10,11 @@ local TARGET_SLOT = "plugin2"
 local XBGUARD_VAL = "Hdd:\\Servidores\\xbGuard.xex"
 local RELIVE_VAL  = "Hdd:\\ReLive.xex"
 
--- Si es true: pone liveblock = false con xbGuard/ReLive y liveblock = true en modo Offline
--- (mantiene livestrong = false para no romper descargas de Aurora)
-local MANAGE_LIVEBLOCK = true
+-- Ajusta automaticamente los parametros de red de [Settings] requeridos por cada modo:
+--   ReLive  -> liveblock=true, livestrong=true, xhttp=false, sockpatch=true, pingpatch=true, noupdater=true, nonetstore=true
+--   xbGuard -> liveblock=false, livestrong=false, xhttp=false, sockpatch=true
+--   Offline -> liveblock=true, livestrong=false, xhttp=false
+local MANAGE_NETWORK_SETTINGS = true
 
 -- Plugins incompatibles que NUNCA deben coexistir en plugin1..plugin5
 local INCOMPATIBLE_PLUGINS = {
@@ -92,7 +94,7 @@ local function detectStatus(lines)
     end
 end
 
-local function applyMode(lines, targetPath, liveblockValue)
+local function applyMode(lines, targetPath, settingsMap)
     local section = ""
     local targetLineIndex = nil
     local targetCurrentVal = ""
@@ -132,8 +134,8 @@ local function applyMode(lines, targetPath, liveblockValue)
         lines[targetLineIndex].text = TARGET_SLOT:lower() .. " = " .. targetPath
     end
 
-    -- 3. Opcional: ajustar liveblock dentro de [Settings]
-    if MANAGE_LIVEBLOCK and liveblockValue ~= nil then
+    -- 3. Ajustar parametros de red dentro de [Settings]
+    if MANAGE_NETWORK_SETTINGS and settingsMap then
         section = ""
         for _, item in ipairs(lines) do
             local trimmed = item.text:match("^%s*(.-)%s*$")
@@ -141,10 +143,12 @@ local function applyMode(lines, targetPath, liveblockValue)
             if sec then
                 section = sec:lower()
             elseif section == "settings" and trimmed ~= "" and trimmed:sub(1, 1) ~= ";" and trimmed:sub(1, 1) ~= "#" then
-                local key = trimmed:match("^([lL][iI][vV][eE][bB][lL][oO][cC][kK])%s*=")
+                local key = trimmed:match("^([%a_]+)%s*=")
                 if key then
-                    item.text = "liveblock = " .. liveblockValue
-                    break
+                    local keyLower = key:lower()
+                    if settingsMap[keyLower] ~= nil then
+                        item.text = keyLower .. " = " .. settingsMap[keyLower]
+                    end
                 end
             end
         end
@@ -184,7 +188,7 @@ function main()
         return
     end
 
-    local targetPath, liveblockVal, statusMsg
+    local targetPath, settingsMap, statusMsg
 
     if choice.Button == 1 then
         local auroraXex = toAuroraPath(XBGUARD_VAL)
@@ -192,27 +196,44 @@ function main()
             Script.ShowMessageBox("Archivo no encontrado", "No se encontro:\n" .. auroraXex .. "\n\nVerifica la ruta XBGUARD_VAL en Main.lua.", "OK")
             return
         end
-        targetPath   = XBGUARD_VAL
-        liveblockVal = "false"
-        statusMsg    = "xbGuard ACTIVADO en " .. TARGET_SLOT .. ".\nSe limpiaron otros servidores incompatibles.\n\nReinicia la consola para aplicar el cambio."
+        targetPath  = XBGUARD_VAL
+        settingsMap = {
+            liveblock  = "false",
+            livestrong = "false",
+            xhttp      = "false",
+            sockpatch  = "true",
+        }
+        statusMsg   = "xbGuard ACTIVADO en " .. TARGET_SLOT .. ".\nSe limpiaron otros servidores incompatibles.\n\nReinicia la consola para aplicar el cambio."
     elseif choice.Button == 2 then
         local auroraXex = toAuroraPath(RELIVE_VAL)
         if not FileSystem.FileExists(auroraXex) then
             Script.ShowMessageBox("Archivo no encontrado", "No se encontro:\n" .. auroraXex .. "\n\nCopia ReLive.xex (junto a ReLive.ini y Themes) o ajusta RELIVE_VAL en Main.lua.", "OK")
             return
         end
-        targetPath   = RELIVE_VAL
-        liveblockVal = "false"
-        statusMsg    = "ReLive ACTIVADO en " .. TARGET_SLOT .. ".\nSe limpiaron otros servidores incompatibles.\n\nReinicia la consola para aplicar el cambio."
+        targetPath  = RELIVE_VAL
+        settingsMap = {
+            liveblock  = "true",
+            livestrong = "true",
+            xhttp      = "false",
+            sockpatch  = "true",
+            pingpatch  = "true",
+            noupdater  = "true",
+            nonetstore = "true",
+        }
+        statusMsg   = "ReLive ACTIVADO en " .. TARGET_SLOT .. " (con liveblock/livestrong/xhttp configurados para ReLive).\n\nReinicia la consola para aplicar el cambio."
     elseif choice.Button == 3 then
-        targetPath   = nil
-        liveblockVal = "true"
-        statusMsg    = "Modo OFFLINE / Xbox Clasico ACTIVADO.\nSe desactivaron xbGuard, ReLive y RGLoader manteniendo tus otros plugins intactos.\n\nReinicia la consola para aplicar el cambio."
+        targetPath  = nil
+        settingsMap = {
+            liveblock  = "true",
+            livestrong = "false",
+            xhttp      = "false",
+        }
+        statusMsg   = "Modo OFFLINE / Xbox Clasico ACTIVADO.\nSe desactivaron xbGuard, ReLive y RGLoader manteniendo tus otros plugins intactos.\n\nReinicia la consola para aplicar el cambio."
     else
         return
     end
 
-    local okApply, errMsg = applyMode(lines, targetPath, liveblockVal)
+    local okApply, errMsg = applyMode(lines, targetPath, settingsMap)
     if not okApply then
         Script.ShowMessageBox("Error", errMsg, "OK")
         return
