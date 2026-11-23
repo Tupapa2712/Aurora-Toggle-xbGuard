@@ -10,10 +10,9 @@ local TARGET_SLOT = "plugin2"
 local XBGUARD_VAL = "Hdd:\\Servidores\\xbGuard.xex"
 local RELIVE_VAL  = "Hdd:\\ReLive.xex"
 
--- Ajusta automaticamente los parametros de red de [Settings] requeridos por cada modo:
---   ReLive  -> liveblock=true, livestrong=true, xhttp=false, sockpatch=true, pingpatch=true, noupdater=true, nonetstore=true
---   xbGuard -> liveblock=false, livestrong=false, xhttp=false, sockpatch=true
---   Offline -> liveblock=true, livestrong=false, xhttp=false
+-- Ajusta automaticamente los parametros de red de [Settings] segun el modo:
+--   xbGuard / ReLive -> liveblock=false, livestrong=false, fakelive=false, sockpatch=true
+--   Offline          -> liveblock=true,  livestrong=false, fakelive=false
 local MANAGE_NETWORK_SETTINGS = true
 
 -- Plugins incompatibles que NUNCA deben coexistir en plugin1..plugin5
@@ -200,7 +199,7 @@ function main()
         settingsMap = {
             liveblock  = "false",
             livestrong = "false",
-            xhttp      = "false",
+            fakelive   = "false",
             sockpatch  = "true",
         }
         statusMsg   = "xbGuard ACTIVADO en " .. TARGET_SLOT .. ".\nSe limpiaron otros servidores incompatibles.\n\nReinicia la consola para aplicar el cambio."
@@ -212,23 +211,20 @@ function main()
         end
         targetPath  = RELIVE_VAL
         settingsMap = {
-            liveblock  = "true",
-            livestrong = "true",
-            xhttp      = "false",
+            liveblock  = "false",
+            livestrong = "false",
+            fakelive   = "false",
             sockpatch  = "true",
-            pingpatch  = "true",
-            noupdater  = "true",
-            nonetstore = "true",
         }
-        statusMsg   = "ReLive ACTIVADO en " .. TARGET_SLOT .. " (con liveblock/livestrong/xhttp configurados para ReLive).\n\nReinicia la consola para aplicar el cambio."
+        statusMsg   = "ReLive ACTIVADO en " .. TARGET_SLOT .. ".\nUsa un perfil local/ReLive (no el de Microsoft Live).\n\nReinicia la consola para aplicar el cambio."
     elseif choice.Button == 3 then
         targetPath  = nil
         settingsMap = {
             liveblock  = "true",
             livestrong = "false",
-            xhttp      = "false",
+            fakelive   = "false",
         }
-        statusMsg   = "Modo OFFLINE / Xbox Clasico ACTIVADO.\nSe desactivaron xbGuard, ReLive y RGLoader manteniendo tus otros plugins intactos.\n\nReinicia la consola para aplicar el cambio."
+        statusMsg   = "Modo OFFLINE / Xbox Clasico ACTIVADO.\nliveblock = true (caraturas de Aurora activas).\n\nReinicia la consola para aplicar el cambio."
     else
         return
     end
