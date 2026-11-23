@@ -1,11 +1,157 @@
-scriptTitle = "Alternar xbGuard (Online / Xbox Clasico)"
-scriptAuthor = "Community"
-scriptVersion = 1
-scriptDescription = "Activa o desactiva xbGuard.xex en Hdd1:\\launch.ini y reinicia la consola automaticamente."
+scriptTitle = "Selector de Servidor (xbGuard / ReLive / Offline)"
+scriptAuthor = "Tupapa2712"
+scriptVersion = 2
+scriptDescription = "Alterna entre xbGuard, ReLive o modo Offline en Hdd1:\\launch.ini respetando tus otros plugins y reinicia la consola."
 scriptPermissions = { "filesystem" }
 
-local INI_PATH = "Hdd1:\\launch.ini"
+-- Configuracion de rutas (ajusta si tus archivos estan en otra carpeta)
+local INI_PATH    = "Hdd1:\\launch.ini"
+local TARGET_SLOT = "plugin2"
 local XBGUARD_VAL = "Hdd:\\Servidores\\xbGuard.xex"
+local RELIVE_VAL  = "Hdd:\\ReLive.xex"
+
+-- Si es true: pone liveblock = false con xbGuard/ReLive y liveblock = true en modo Offline
+-- (mantiene livestrong = false para no romper descargas de Aurora)
+local MANAGE_LIVEBLOCK = true
+
+-- Plugins incompatibles que NUNCA deben coexistir en plugin1..plugin5
+local INCOMPATIBLE_PLUGINS = {
+    "xbguard.xex",
+    "relive.xex",
+    "rgloader.xex",
+}
+
+local function splitLines(text)
+    local lines = {}
+    local pos = 1
+    while pos <= #text do
+        local s, e = text:find("\r?\n", pos)
+        if s then
+            table.insert(lines, { text = text:sub(pos, s - 1), eol = text:sub(s, e) })
+            pos = e + 1
+        else
+            table.insert(lines, { text = text:sub(pos), eol = "" })
+            break
+        end
+    end
+    return lines
+end
+
+local function joinLines(lines)
+    local out = {}
+    for i = 1, #lines do
+        out[i] = lines[i].text .. lines[i].eol
+    end
+    return table.concat(out)
+end
+
+local function isIncompatible(val)
+    local low = (val or ""):lower()
+    if low == "" then return false end
+    for _, name in ipairs(INCOMPATIBLE_PLUGINS) do
+        if low:find(name, 1, true) then
+            return true
+        end
+    end
+    return false
+end
+
+local function toAuroraPath(dashlaunchPath)
+    return (dashlaunchPath:gsub("^[hH][dD][dD]:\\", "Hdd1:\\", 1))
+end
+
+local function detectStatus(lines)
+    local found = {}
+    local section = ""
+    for _, item in ipairs(lines) do
+        local trimmed = item.text:match("^%s*(.-)%s*$")
+        local sec = trimmed:match("^%[([^%]]+)%]$")
+        if sec then
+            section = sec:lower()
+        elseif section == "plugins" and trimmed ~= "" and trimmed:sub(1, 1) ~= ";" and trimmed:sub(1, 1) ~= "#" then
+            local key, val = trimmed:match("^([pP][lL][uU][gG][iI][nN][1-5])%s*=%s*(.-)%s*$")
+            if key and val ~= "" then
+                local low = val:lower()
+                if low:find("xbguard.xex", 1, true) then
+                    table.insert(found, "xbGuard (" .. key:lower() .. ")")
+                elseif low:find("relive.xex", 1, true) then
+                    table.insert(found, "ReLive (" .. key:lower() .. ")")
+                elseif low:find("rgloader.xex", 1, true) then
+                    table.insert(found, "RGLoader (" .. key:lower() .. ")")
+                end
+            end
+        end
+    end
+
+    if #found == 0 then
+        return "Modo Offline / Xbox Clasico (ningun servidor activo)"
+    elseif #found == 1 then
+        return found[1]
+    else
+        return "CONFLICTO DETECTADO: " .. table.concat(found, " + ")
+    end
+end
+
+local function applyMode(lines, targetPath, liveblockValue)
+    local section = ""
+    local targetLineIndex = nil
+    local targetCurrentVal = ""
+
+    -- 1. Escanear [Plugins]: limpiar stealth incompatibles en todos los slots
+    --    sin tocar ningun otro plugin del usuario.
+    for i, item in ipairs(lines) do
+        local trimmed = item.text:match("^%s*(.-)%s*$")
+        local sec = trimmed:match("^%[([^%]]+)%]$")
+        if sec then
+            section = sec:lower()
+        elseif section == "plugins" and trimmed ~= "" and trimmed:sub(1, 1) ~= ";" and trimmed:sub(1, 1) ~= "#" then
+            local key, val = trimmed:match("^([pP][lL][uU][gG][iI][nN][1-5])%s*=%s*(.-)%s*$")
+            if key then
+                local keyLower = key:lower()
+                if isIncompatible(val) then
+                    item.text = keyLower .. " ="
+                    val = ""
+                end
+                if keyLower == TARGET_SLOT:lower() then
+                    targetLineIndex = i
+                    targetCurrentVal = val
+                end
+            end
+        end
+    end
+
+    -- 2. Si se va a activar xbGuard o ReLive, validar el slot objetivo
+    if targetPath ~= nil then
+        if not targetLineIndex then
+            return false, "No se encontro la linea " .. TARGET_SLOT .. " en [Plugins] de " .. INI_PATH
+        end
+        if targetCurrentVal ~= "" then
+            return false, TARGET_SLOT .. " ya esta ocupado por otro plugin:\n" .. targetCurrentVal ..
+                "\n\nLibera ese slot o cambia TARGET_SLOT en Main.lua."
+        end
+        lines[targetLineIndex].text = TARGET_SLOT:lower() .. " = " .. targetPath
+    end
+
+    -- 3. Opcional: ajustar liveblock dentro de [Settings]
+    if MANAGE_LIVEBLOCK and liveblockValue ~= nil then
+        section = ""
+        for _, item in ipairs(lines) do
+            local trimmed = item.text:match("^%s*(.-)%s*$")
+            local sec = trimmed:match("^%[([^%]]+)%]$")
+            if sec then
+                section = sec:lower()
+            elseif section == "settings" and trimmed ~= "" and trimmed:sub(1, 1) ~= ";" and trimmed:sub(1, 1) ~= "#" then
+                local key = trimmed:match("^([lL][iI][vV][eE][bB][lL][oO][cC][kK])%s*=")
+                if key then
+                    item.text = "liveblock = " .. liveblockValue
+                    break
+                end
+            end
+        end
+    end
+
+    return true, nil
+end
 
 function main()
     if not FileSystem.FileExists(INI_PATH) then
@@ -19,29 +165,67 @@ function main()
         return
     end
 
-    local is_enabled = content:lower():find("plugin2%s*=%s*hdd:\\servidores\\xbguard%.xex") ~= nil
-    local new_content, n, status_msg
+    local lines = splitLines(content)
+    local currentStatus = detectStatus(lines)
 
-    if is_enabled then
-        new_content, n = content:gsub("([pP][lL][uU][gG][iI][nN]2%s*=)[^\r\n]*", "%1", 1)
-        status_msg = "xbGuard DESACTIVADO (Modo para utilizar Xbox Clasico).\n\nLa consola se reiniciara para aplicar el cambio."
-    else
-        new_content, n = content:gsub("([pP][lL][uU][gG][iI][nN]2%s*=)[^\r\n]*", "%1 " .. XBGUARD_VAL, 1)
-        status_msg = "xbGuard ACTIVADO (Modo Online / Logros).\n\nLa consola se reiniciara para aplicar el cambio."
-    end
+    local promptMsg =
+        "Estado actual:\n" .. currentStatus .. "\n\n" ..
+        "Elige el modo para " .. TARGET_SLOT .. " (presiona B para cancelar):"
 
-    if n == 0 then
-        Script.ShowMessageBox("Error", "No se encontro la linea plugin2 en " .. INI_PATH, "OK")
+    local choice = Script.ShowMessageBox(
+        "Selector xbGuard / ReLive",
+        promptMsg,
+        "xbGuard",
+        "ReLive",
+        "Offline (Ninguno)"
+    )
+
+    if not choice or choice.Canceled then
         return
     end
 
-    local ok = FileSystem.WriteFile(INI_PATH, new_content)
-    if ok == false then
+    local targetPath, liveblockVal, statusMsg
+
+    if choice.Button == 1 then
+        local auroraXex = toAuroraPath(XBGUARD_VAL)
+        if not FileSystem.FileExists(auroraXex) then
+            Script.ShowMessageBox("Archivo no encontrado", "No se encontro:\n" .. auroraXex .. "\n\nVerifica la ruta XBGUARD_VAL en Main.lua.", "OK")
+            return
+        end
+        targetPath   = XBGUARD_VAL
+        liveblockVal = "false"
+        statusMsg    = "xbGuard ACTIVADO en " .. TARGET_SLOT .. ".\nSe limpiaron otros servidores incompatibles.\n\nReinicia la consola para aplicar el cambio."
+    elseif choice.Button == 2 then
+        local auroraXex = toAuroraPath(RELIVE_VAL)
+        if not FileSystem.FileExists(auroraXex) then
+            Script.ShowMessageBox("Archivo no encontrado", "No se encontro:\n" .. auroraXex .. "\n\nCopia ReLive.xex (junto a ReLive.ini y Themes) o ajusta RELIVE_VAL en Main.lua.", "OK")
+            return
+        end
+        targetPath   = RELIVE_VAL
+        liveblockVal = "false"
+        statusMsg    = "ReLive ACTIVADO en " .. TARGET_SLOT .. ".\nSe limpiaron otros servidores incompatibles.\n\nReinicia la consola para aplicar el cambio."
+    elseif choice.Button == 3 then
+        targetPath   = nil
+        liveblockVal = "true"
+        statusMsg    = "Modo OFFLINE / Xbox Clasico ACTIVADO.\nSe desactivaron xbGuard, ReLive y RGLoader manteniendo tus otros plugins intactos.\n\nReinicia la consola para aplicar el cambio."
+    else
+        return
+    end
+
+    local okApply, errMsg = applyMode(lines, targetPath, liveblockVal)
+    if not okApply then
+        Script.ShowMessageBox("Error", errMsg, "OK")
+        return
+    end
+
+    local newContent = joinLines(lines)
+    local okWrite = FileSystem.WriteFile(INI_PATH, newContent)
+    if okWrite == false then
         Script.ShowMessageBox("Error", "No se pudo guardar " .. INI_PATH, "OK")
         return
     end
 
-    local ret = Script.ShowMessageBox("Alternar xbGuard", status_msg, "Reiniciar ahora", "Luego")
+    local ret = Script.ShowMessageBox("Cambio guardado", statusMsg, "Reiniciar ahora", "Luego")
     if ret and not ret.Canceled and ret.Button == 1 then
         if Aurora.Reboot then
             Aurora.Reboot()
