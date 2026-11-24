@@ -1,26 +1,18 @@
-scriptTitle = "Selector de Servidor (xbGuard / ReLive / Offline)"
+scriptTitle = "Alternar xbGuard (Online / Offline)"
 scriptAuthor = "Tupapa2712"
 scriptVersion = 2
-scriptDescription = "Alterna entre xbGuard, ReLive o modo Offline en Hdd1:\\launch.ini respetando tus otros plugins y reinicia la consola."
+scriptDescription = "Activa o desactiva xbGuard.xex en Hdd1:\\launch.ini ajustando liveblock automaticamente y respetando tus otros plugins."
 scriptPermissions = { "filesystem" }
 
 -- Configuracion de rutas (ajusta si tus archivos estan en otra carpeta)
 local INI_PATH    = "Hdd1:\\launch.ini"
 local TARGET_SLOT = "plugin2"
 local XBGUARD_VAL = "Hdd:\\Servidores\\xbGuard.xex"
-local RELIVE_VAL  = "Hdd:\\ReLive.xex"
 
--- Ajusta automaticamente los parametros de red de [Settings] segun el modo:
---   xbGuard / ReLive -> liveblock=false, livestrong=false, fakelive=false, sockpatch=true
---   Offline          -> liveblock=true,  livestrong=false, fakelive=false
+-- Ajusta automaticamente los parametros de red de [Settings]:
+--   xbGuard ON  -> liveblock=false, livestrong=false, fakelive=false, sockpatch=true
+--   xbGuard OFF -> liveblock=true,  livestrong=false, fakelive=false
 local MANAGE_NETWORK_SETTINGS = true
-
--- Plugins incompatibles que NUNCA deben coexistir en plugin1..plugin5
-local INCOMPATIBLE_PLUGINS = {
-    "xbguard.xex",
-    "relive.xex",
-    "rgloader.xex",
-}
 
 local function splitLines(text)
     local lines = {}
@@ -46,23 +38,15 @@ local function joinLines(lines)
     return table.concat(out)
 end
 
-local function isIncompatible(val)
-    local low = (val or ""):lower()
-    if low == "" then return false end
-    for _, name in ipairs(INCOMPATIBLE_PLUGINS) do
-        if low:find(name, 1, true) then
-            return true
-        end
-    end
-    return false
-end
-
 local function toAuroraPath(dashlaunchPath)
     return (dashlaunchPath:gsub("^[hH][dD][dD]:\\", "Hdd1:\\", 1))
 end
 
+local function isXbGuard(val)
+    return (val or ""):lower():find("xbguard.xex", 1, true) ~= nil
+end
+
 local function detectStatus(lines)
-    local found = {}
     local section = ""
     for _, item in ipairs(lines) do
         local trimmed = item.text:match("^%s*(.-)%s*$")
@@ -71,34 +55,20 @@ local function detectStatus(lines)
             section = sec:lower()
         elseif section == "plugins" and trimmed ~= "" and trimmed:sub(1, 1) ~= ";" and trimmed:sub(1, 1) ~= "#" then
             local key, val = trimmed:match("^([pP][lL][uU][gG][iI][nN][1-5])%s*=%s*(.-)%s*$")
-            if key and val ~= "" then
-                local low = val:lower()
-                if low:find("xbguard.xex", 1, true) then
-                    table.insert(found, "xbGuard (" .. key:lower() .. ")")
-                elseif low:find("relive.xex", 1, true) then
-                    table.insert(found, "ReLive (" .. key:lower() .. ")")
-                elseif low:find("rgloader.xex", 1, true) then
-                    table.insert(found, "RGLoader (" .. key:lower() .. ")")
-                end
+            if key and isXbGuard(val) then
+                return true, "xbGuard ACTIVADO (" .. key:lower() .. ")"
             end
         end
     end
-
-    if #found == 0 then
-        return "Modo Offline / Xbox Clasico (ningun servidor activo)"
-    elseif #found == 1 then
-        return found[1]
-    else
-        return "CONFLICTO DETECTADO: " .. table.concat(found, " + ")
-    end
+    return false, "xbGuard DESACTIVADO (Modo Offline / Xbox Clasico)"
 end
 
-local function applyMode(lines, targetPath, settingsMap)
+local function applyMode(lines, enableXbGuard, settingsMap)
     local section = ""
     local targetLineIndex = nil
     local targetCurrentVal = ""
 
-    -- 1. Escanear [Plugins]: limpiar stealth incompatibles en todos los slots
+    -- 1. Escanear [Plugins]: limpiar cualquier entrada previa de xbGuard.xex
     --    sin tocar ningun otro plugin del usuario.
     for i, item in ipairs(lines) do
         local trimmed = item.text:match("^%s*(.-)%s*$")
@@ -109,7 +79,7 @@ local function applyMode(lines, targetPath, settingsMap)
             local key, val = trimmed:match("^([pP][lL][uU][gG][iI][nN][1-5])%s*=%s*(.-)%s*$")
             if key then
                 local keyLower = key:lower()
-                if isIncompatible(val) then
+                if isXbGuard(val) then
                     item.text = keyLower .. " ="
                     val = ""
                 end
@@ -121,8 +91,8 @@ local function applyMode(lines, targetPath, settingsMap)
         end
     end
 
-    -- 2. Si se va a activar xbGuard o ReLive, validar el slot objetivo
-    if targetPath ~= nil then
+    -- 2. Si se va a activar xbGuard, validar el slot objetivo
+    if enableXbGuard then
         if not targetLineIndex then
             return false, "No se encontro la linea " .. TARGET_SLOT .. " en [Plugins] de " .. INI_PATH
         end
@@ -130,7 +100,7 @@ local function applyMode(lines, targetPath, settingsMap)
             return false, TARGET_SLOT .. " ya esta ocupado por otro plugin:\n" .. targetCurrentVal ..
                 "\n\nLibera ese slot o cambia TARGET_SLOT en Main.lua."
         end
-        lines[targetLineIndex].text = TARGET_SLOT:lower() .. " = " .. targetPath
+        lines[targetLineIndex].text = TARGET_SLOT:lower() .. " = " .. XBGUARD_VAL
     end
 
     -- 3. Ajustar parametros de red dentro de [Settings]
@@ -169,25 +139,24 @@ function main()
     end
 
     local lines = splitLines(content)
-    local currentStatus = detectStatus(lines)
+    local _, currentStatus = detectStatus(lines)
 
     local promptMsg =
         "Estado actual:\n" .. currentStatus .. "\n\n" ..
-        "Elige el modo para " .. TARGET_SLOT .. " (presiona B para cancelar):"
+        "Elige una opcion para " .. TARGET_SLOT .. " (presiona B para cancelar):"
 
     local choice = Script.ShowMessageBox(
-        "Selector xbGuard / ReLive",
+        "Alternar xbGuard",
         promptMsg,
-        "xbGuard",
-        "ReLive",
-        "Offline (Ninguno)"
+        "Activar xbGuard",
+        "Desactivar (Offline)"
     )
 
     if not choice or choice.Canceled then
         return
     end
 
-    local targetPath, settingsMap, statusMsg
+    local enableXbGuard, settingsMap, statusMsg
 
     if choice.Button == 1 then
         local auroraXex = toAuroraPath(XBGUARD_VAL)
@@ -195,41 +164,27 @@ function main()
             Script.ShowMessageBox("Archivo no encontrado", "No se encontro:\n" .. auroraXex .. "\n\nVerifica la ruta XBGUARD_VAL en Main.lua.", "OK")
             return
         end
-        targetPath  = XBGUARD_VAL
+        enableXbGuard = true
         settingsMap = {
             liveblock  = "false",
             livestrong = "false",
             fakelive   = "false",
             sockpatch  = "true",
         }
-        statusMsg   = "xbGuard ACTIVADO en " .. TARGET_SLOT .. ".\nSe limpiaron otros servidores incompatibles.\n\nReinicia la consola para aplicar el cambio."
+        statusMsg = "xbGuard ACTIVADO en " .. TARGET_SLOT .. " (Modo Online / Xbox Live).\n\nLa consola se reiniciara para aplicar el cambio."
     elseif choice.Button == 2 then
-        local auroraXex = toAuroraPath(RELIVE_VAL)
-        if not FileSystem.FileExists(auroraXex) then
-            Script.ShowMessageBox("Archivo no encontrado", "No se encontro:\n" .. auroraXex .. "\n\nCopia ReLive.xex (junto a ReLive.ini y Themes) o ajusta RELIVE_VAL en Main.lua.", "OK")
-            return
-        end
-        targetPath  = RELIVE_VAL
-        settingsMap = {
-            liveblock  = "false",
-            livestrong = "false",
-            fakelive   = "false",
-            sockpatch  = "true",
-        }
-        statusMsg   = "ReLive ACTIVADO en " .. TARGET_SLOT .. ".\nUsa un perfil local/ReLive (no el de Microsoft Live).\n\nReinicia la consola para aplicar el cambio."
-    elseif choice.Button == 3 then
-        targetPath  = nil
+        enableXbGuard = false
         settingsMap = {
             liveblock  = "true",
             livestrong = "false",
             fakelive   = "false",
         }
-        statusMsg   = "Modo OFFLINE / Xbox Clasico ACTIVADO.\nliveblock = true (caraturas de Aurora activas).\n\nReinicia la consola para aplicar el cambio."
+        statusMsg = "xbGuard DESACTIVADO (Modo Offline / Xbox Clasico).\nliveblock = true (caratulas de Aurora activas).\n\nLa consola se reiniciara para aplicar el cambio."
     else
         return
     end
 
-    local okApply, errMsg = applyMode(lines, targetPath, settingsMap)
+    local okApply, errMsg = applyMode(lines, enableXbGuard, settingsMap)
     if not okApply then
         Script.ShowMessageBox("Error", errMsg, "OK")
         return
@@ -242,7 +197,7 @@ function main()
         return
     end
 
-    local ret = Script.ShowMessageBox("Cambio guardado", statusMsg, "Reiniciar ahora", "Luego")
+    local ret = Script.ShowMessageBox("Alternar xbGuard", statusMsg, "Reiniciar ahora", "Luego")
     if ret and not ret.Canceled and ret.Button == 1 then
         if Aurora.Reboot then
             Aurora.Reboot()

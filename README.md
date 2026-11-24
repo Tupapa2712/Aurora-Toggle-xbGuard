@@ -1,52 +1,22 @@
-# Aurora Stealth Server Switcher (xbGuard / ReLive / Offline)
+# Aurora Toggle xbGuard
 
-If you use **xbGuard** and **ReLive** on your RGH Xbox 360—or switch to **Offline / Original Xbox** mode to avoid stealth-server compatibility issues with Original Xbox titles—editing `launch.ini` in DashLaunch every single time gets tedious fast.
+If you play Original Xbox games on your RGH Xbox 360 and use **xbGuard**, disabling it in DashLaunch every single time gets tedious fast—especially because **xbGuard has compatibility issues with Original Xbox games**.
 
-This ready-to-use **Aurora Dashboard Utility Script** lets you switch cleanly between **xbGuard**, **ReLive**, or **Offline Mode (both disabled)** right from Aurora, automatically adjusts the required DashLaunch `[Settings]` network flags, preserves all your other plugins, and prompts you to reboot immediately.
+This ready-to-use **Aurora Dashboard Utility Script** lets you toggle `xbGuard.xex` **ON** or **OFF (Offline)** in your `Hdd1:\launch.ini` (`plugin2` slot), automatically adjusts `liveblock` in `[Settings]`, preserves all your other plugins, and prompts you to reboot right from Aurora.
 
 ## Key Features
-- **3-Way Switcher in One Menu:** Choose between **xbGuard**, **ReLive**, or **Offline (None)** directly from Aurora (press **B** to cancel).
-- **Strict Mutual Exclusion (`plugin1`–`plugin5`):** Automatically scans all 5 DashLaunch plugin slots and clears `xbGuard.xex`, `ReLive.xex`, or `RGLoader.xex` before activating the selected server so incompatible environments never boot together.
-- **Preserves Your Other Plugins:** Never modifies or removes unrelated plugins (such as `xbdm.xex`, `UsbdSecPatch.xex`, `JRPC2.xex`, `t240.xex`, etc.) or commented lines in `launch.ini`.
-- **Automatic Network Settings per Mode:** Automatically updates `liveblock`, `livestrong`, `fakelive`, and `sockpatch` in `[Settings]` to match the selected mode.
-- **Slot Safety & File Check:** Refuses to overwrite `plugin2` if another unrelated plugin occupies it, and verifies that the target `.xex` exists on HDD before saving.
-
----
-
-## Automatic `launch.ini` Network Settings per Mode
-
-When `MANAGE_NETWORK_SETTINGS = true` (enabled by default in `Main.lua`), the script updates the following `[Settings]` keys inside `Hdd1:\launch.ini` depending on the mode you choose:
-
-| Mode | `plugin2` | `liveblock` | `livestrong` | `fakelive` | `sockpatch` | Purpose |
-|---|---|---|---|---|---|---|
-| **xbGuard** | `Hdd:\Servidores\xbGuard.xex` | `false` | `false` | `false` | `true` | Official Xbox Live via xbGuard stealth |
-| **ReLive** | `Hdd:\ReLive.xex` | `false` | `false` | `false` | `true` | Private Xbox Live revival via ReLive |
-| **Offline (None)** | *(empty)* | `true` | `false` | `false` | *(unchanged)* | Offline play, Original Xbox titles, homebrew & media apps |
-
-> **Why `liveblock = true` and `livestrong = false` in Offline mode?**  
-> Enabling `liveblock = true` blocks outgoing Xbox Live DNS traffic when no stealth server is active, minimizing the risk of a console/KV ban. Keeping `livestrong = false` ensures Aurora can still download cover art, title updates, and connect to homebrew stores or local network services without interruption.
-
----
-
-## Important: Profile Isolation & Sign-In Rules
-
-> [!IMPORTANT]
-> **Do NOT sign into ReLive with an original Microsoft / Xbox Live profile used on xbGuard.**  
-> **xbGuard** connects to official Microsoft Xbox Live servers, whereas **ReLive** connects to its own private replacement backend. Attempting to sign into ReLive using a Microsoft Live profile (which carries Microsoft XUID/Passport tokens and Live tickets) causes an authentication collision that triggers a **forced console reboot/shutdown**.
-
-Follow these strict profile rules for zero crashes or reboots:
-- **xbGuard:** Sign in **only** with your original **Microsoft / Xbox Live** profile.
-- **ReLive:** Sign in **only** with a **clean local profile created specifically for ReLive** (and use separate clean local profiles if multiple players share the same console).
-- **Offline (None):** Play **without signing into online profiles** (or use an offline local profile) for Original Xbox games, homebrew, and media applications.
-
----
+- **Simple 2-Mode Toggle:** Choose **Activar xbGuard** (Online / Xbox Live) or **Desactivar (Offline)** directly from Aurora (press **B** to cancel).
+- **Automatic `liveblock` Protection:**
+  | Mode | `plugin2` | `liveblock` | `livestrong` | `fakelive` | `sockpatch` |
+  |---|---|---|---|---|---|
+  | **xbGuard ON (Online)** | `Hdd:\Servidores\xbGuard.xex` | `false` | `false` | `false` | `true` |
+  | **xbGuard OFF (Offline)** | *(empty)* | `true` | `false` | `false` | *(unchanged)* |
+  *(Keeping `livestrong = false` in Offline mode blocks Xbox Live traffic while letting Aurora continue downloading cover art and homebrew updates).*
+- **Preserves All Other Plugins:** Safely edits only `[Plugins]` / `[Settings]` line-by-line (ignoring comments) without touching `plugin1`, `plugin3`, `plugin4`, or `plugin5`.
+- **Slot Safety & File Check:** Verifies that `xbGuard.xex` exists on HDD and refuses to overwrite `plugin2` if another unrelated plugin is already using it.
 
 ## Prerequisites
-By default, the script uses the `plugin2` slot and the following paths:
-- **xbGuard:** `Hdd:\Servidores\xbGuard.xex`
-- **ReLive:** `Hdd:\ReLive.xex` *(along with `ReLive.ini` and the `Themes\` folder on `Hdd:\`)*
-
-If your `.xex` paths or target slot are different, simply edit `TARGET_SLOT`, `XBGUARD_VAL`, or `RELIVE_VAL` at the top of `Main.lua`.
+By default, this script expects `xbGuard.xex` at `Hdd:\Servidores\xbGuard.xex` and manages the `plugin2` slot. If your path or slot is different, edit `TARGET_SLOT` or `XBGUARD_VAL` at the top of `Main.lua`.
 
 ## Installation Instructions
 1. Download and extract the `Toggle_xbGuard` folder (containing `Main.lua`) from [**Releases**](https://github.com/Tupapa2712/Aurora-Toggle-xbGuard/releases/latest).
@@ -55,13 +25,12 @@ If your `.xex` paths or target slot are different, simply edit `TARGET_SLOT`, `X
    *(Note: If your Aurora folder has a different name—for example `AuroraLaunch`—replace `Aurora` with your actual folder name).*
 3. Run the script:
    - Inside Aurora, press the **Back** button on your controller.
-   - Go to **Scripts** → **Selector de Servidor (xbGuard / ReLive / Offline)**.
-   - Pick **xbGuard**, **ReLive**, or **Offline (Ninguno)**, then choose **Reiniciar ahora**.
+   - Go to **Scripts** → **Alternar xbGuard (Online / Offline)**.
+   - Choose **Activar xbGuard** or **Desactivar (Offline)**, then select **Reiniciar ahora**.
 
 ## Issues & Troubleshooting
-- **Console reboots/shuts down when signing into ReLive:** Make sure you are **not** signing in with your Microsoft/xbGuard profile—create and use a clean local profile dedicated to ReLive (see *Profile Isolation & Sign-In Rules* above).
-- **Could not find/read `Hdd1:\launch.ini`:** Make sure `launch.ini` is located at the root of your internal HDD (`Hdd1:\launch.ini`) and that `Main.lua` keeps `scriptPermissions = { "filesystem" }`.
-- **File not found error:** Confirm that `xbGuard.xex` / `ReLive.xex` matches the path configured at the top of `Main.lua`.
+- **Could not find/read `Hdd1:\launch.ini`:** Make sure `launch.ini` is in the root of your internal HDD (`Hdd1:\launch.ini`) and that `Main.lua` keeps `scriptPermissions = { "filesystem" }`.
+- **File not found error:** Confirm that `xbGuard.xex` exists at the path configured in `XBGUARD_VAL`.
 - **Target slot already occupied:** Free `plugin2` in DashLaunch or change `TARGET_SLOT` in `Main.lua` to an empty slot.
 - **Found a bug or need help?** Open an issue in the [**Issues**](https://github.com/Tupapa2712/Aurora-Toggle-xbGuard/issues) tab with your Aurora version and `[Plugins]` section from `launch.ini`.
 
