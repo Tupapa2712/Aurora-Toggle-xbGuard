@@ -1,15 +1,15 @@
-scriptTitle = "Alternar xbGuard (Online / Offline)"
+scriptTitle = "Toggle xbGuard (Online / Offline)"
 scriptAuthor = "Tupapa2712"
 scriptVersion = 2
-scriptDescription = "Activa o desactiva xbGuard.xex en Hdd1:\\launch.ini ajustando liveblock automaticamente y respetando tus otros plugins."
+scriptDescription = "Enables or disables xbGuard.xex in Hdd1:\\launch.ini with automatic liveblock handling while preserving all other plugins."
 scriptPermissions = { "filesystem" }
 
--- Configuracion de rutas (ajusta si tus archivos estan en otra carpeta)
+-- Path configuration (edit if your files are in a different folder or slot)
 local INI_PATH    = "Hdd1:\\launch.ini"
 local TARGET_SLOT = "plugin2"
 local XBGUARD_VAL = "Hdd:\\Servidores\\xbGuard.xex"
 
--- Ajusta automaticamente los parametros de red de [Settings]:
+-- Automatically adjusts [Settings] network flags:
 --   xbGuard ON  -> liveblock=false, livestrong=false, fakelive=false, sockpatch=true
 --   xbGuard OFF -> liveblock=true,  livestrong=false, fakelive=false
 local MANAGE_NETWORK_SETTINGS = true
@@ -56,11 +56,11 @@ local function detectStatus(lines)
         elseif section == "plugins" and trimmed ~= "" and trimmed:sub(1, 1) ~= ";" and trimmed:sub(1, 1) ~= "#" then
             local key, val = trimmed:match("^([pP][lL][uU][gG][iI][nN][1-5])%s*=%s*(.-)%s*$")
             if key and isXbGuard(val) then
-                return true, "xbGuard ACTIVADO (" .. key:lower() .. ")"
+                return true, "xbGuard ENABLED (" .. key:lower() .. ")"
             end
         end
     end
-    return false, "xbGuard DESACTIVADO (Modo Offline / Xbox Clasico)"
+    return false, "xbGuard DISABLED (Offline / Original Xbox Mode)"
 end
 
 local function applyMode(lines, enableXbGuard, settingsMap)
@@ -68,8 +68,8 @@ local function applyMode(lines, enableXbGuard, settingsMap)
     local targetLineIndex = nil
     local targetCurrentVal = ""
 
-    -- 1. Escanear [Plugins]: limpiar cualquier entrada previa de xbGuard.xex
-    --    sin tocar ningun otro plugin del usuario.
+    -- 1. Scan [Plugins]: clear any existing xbGuard.xex entry
+    --    without touching any other user plugin.
     for i, item in ipairs(lines) do
         local trimmed = item.text:match("^%s*(.-)%s*$")
         local sec = trimmed:match("^%[([^%]]+)%]$")
@@ -91,19 +91,19 @@ local function applyMode(lines, enableXbGuard, settingsMap)
         end
     end
 
-    -- 2. Si se va a activar xbGuard, validar el slot objetivo
+    -- 2. If enabling xbGuard, validate the target slot
     if enableXbGuard then
         if not targetLineIndex then
-            return false, "No se encontro la linea " .. TARGET_SLOT .. " en [Plugins] de " .. INI_PATH
+            return false, "Could not find " .. TARGET_SLOT .. " under [Plugins] in " .. INI_PATH
         end
         if targetCurrentVal ~= "" then
-            return false, TARGET_SLOT .. " ya esta ocupado por otro plugin:\n" .. targetCurrentVal ..
-                "\n\nLibera ese slot o cambia TARGET_SLOT en Main.lua."
+            return false, TARGET_SLOT .. " is already occupied by another plugin:\n" .. targetCurrentVal ..
+                "\n\nFree that slot or change TARGET_SLOT in Main.lua."
         end
         lines[targetLineIndex].text = TARGET_SLOT:lower() .. " = " .. XBGUARD_VAL
     end
 
-    -- 3. Ajustar parametros de red dentro de [Settings]
+    -- 3. Update network flags under [Settings]
     if MANAGE_NETWORK_SETTINGS and settingsMap then
         section = ""
         for _, item in ipairs(lines) do
@@ -128,13 +128,13 @@ end
 
 function main()
     if not FileSystem.FileExists(INI_PATH) then
-        Script.ShowMessageBox("Error", "No se encontro " .. INI_PATH, "OK")
+        Script.ShowMessageBox("Error", "Could not find " .. INI_PATH, "OK")
         return
     end
 
     local content = FileSystem.ReadFile(INI_PATH)
     if not content or content == "" then
-        Script.ShowMessageBox("Error", "No se pudo leer " .. INI_PATH, "OK")
+        Script.ShowMessageBox("Error", "Could not read " .. INI_PATH, "OK")
         return
     end
 
@@ -142,14 +142,14 @@ function main()
     local _, currentStatus = detectStatus(lines)
 
     local promptMsg =
-        "Estado actual:\n" .. currentStatus .. "\n\n" ..
-        "Elige una opcion para " .. TARGET_SLOT .. " (presiona B para cancelar):"
+        "Current status:\n" .. currentStatus .. "\n\n" ..
+        "Choose an option for " .. TARGET_SLOT .. " (press B to cancel):"
 
     local choice = Script.ShowMessageBox(
-        "Alternar xbGuard",
+        "Toggle xbGuard",
         promptMsg,
-        "Activar xbGuard",
-        "Desactivar (Offline)"
+        "Enable xbGuard",
+        "Disable (Offline)"
     )
 
     if not choice or choice.Canceled then
@@ -161,7 +161,7 @@ function main()
     if choice.Button == 1 then
         local auroraXex = toAuroraPath(XBGUARD_VAL)
         if not FileSystem.FileExists(auroraXex) then
-            Script.ShowMessageBox("Archivo no encontrado", "No se encontro:\n" .. auroraXex .. "\n\nVerifica la ruta XBGUARD_VAL en Main.lua.", "OK")
+            Script.ShowMessageBox("File Not Found", "Could not find:\n" .. auroraXex .. "\n\nCheck XBGUARD_VAL at the top of Main.lua.", "OK")
             return
         end
         enableXbGuard = true
@@ -171,7 +171,7 @@ function main()
             fakelive   = "false",
             sockpatch  = "true",
         }
-        statusMsg = "xbGuard ACTIVADO en " .. TARGET_SLOT .. " (Modo Online / Xbox Live).\n\nLa consola se reiniciara para aplicar el cambio."
+        statusMsg = "xbGuard ENABLED in " .. TARGET_SLOT .. " (Online / Xbox Live Mode).\n\nYour console will reboot to apply changes."
     elseif choice.Button == 2 then
         enableXbGuard = false
         settingsMap = {
@@ -179,7 +179,7 @@ function main()
             livestrong = "false",
             fakelive   = "false",
         }
-        statusMsg = "xbGuard DESACTIVADO (Modo Offline / Xbox Clasico).\nliveblock = true (caratulas de Aurora activas).\n\nLa consola se reiniciara para aplicar el cambio."
+        statusMsg = "xbGuard DISABLED (Offline / Original Xbox Mode).\nliveblock = true (Aurora cover downloads stay active).\n\nYour console will reboot to apply changes."
     else
         return
     end
@@ -193,11 +193,11 @@ function main()
     local newContent = joinLines(lines)
     local okWrite = FileSystem.WriteFile(INI_PATH, newContent)
     if okWrite == false then
-        Script.ShowMessageBox("Error", "No se pudo guardar " .. INI_PATH, "OK")
+        Script.ShowMessageBox("Error", "Could not save " .. INI_PATH, "OK")
         return
     end
 
-    local ret = Script.ShowMessageBox("Alternar xbGuard", statusMsg, "Reiniciar ahora", "Luego")
+    local ret = Script.ShowMessageBox("Toggle xbGuard", statusMsg, "Reboot now", "Later")
     if ret and not ret.Canceled and ret.Button == 1 then
         if Aurora.Reboot then
             Aurora.Reboot()

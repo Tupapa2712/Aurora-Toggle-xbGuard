@@ -5,7 +5,7 @@ If you play Original Xbox games on your RGH Xbox 360 and use **xbGuard**, disabl
 This ready-to-use **Aurora Dashboard Utility Script** lets you toggle `xbGuard.xex` **ON** or **OFF (Offline)** in your `Hdd1:\launch.ini` (`plugin2` slot), automatically adjusts `liveblock` in `[Settings]`, preserves all your other plugins, and prompts you to reboot right from Aurora.
 
 ## Key Features
-- **Simple 2-Mode Toggle:** Choose **Activar xbGuard** (Online / Xbox Live) or **Desactivar (Offline)** directly from Aurora (press **B** to cancel).
+- **Simple 2-Mode Toggle:** Choose **Enable xbGuard** (Online / Xbox Live) or **Disable (Offline)** directly from Aurora (press **B** to cancel).
 - **Automatic `liveblock` Protection:**
   | Mode | `plugin2` | `liveblock` | `livestrong` | `fakelive` | `sockpatch` |
   |---|---|---|---|---|---|
@@ -24,8 +24,8 @@ By default, this script expects `xbGuard.xex` at `Hdd:\Servidores\xbGuard.xex` a
    `Hdd1:\Aurora\User\Scripts\Utility\`
 3. Run the script:
    - Inside Aurora, press the **Back** button on your controller.
-   - Go to **Scripts** → **Alternar xbGuard (Online / Offline)**.
-   - Choose **Activar xbGuard** or **Desactivar (Offline)**, then select **Reiniciar ahora**.
+   - Go to **Scripts** → **Toggle xbGuard (Online / Offline)**.
+   - Choose **Enable xbGuard** or **Disable (Offline)**, then select **Reboot now**.
 
 ## Issues & Troubleshooting
 - **Could not find/read `Hdd1:\launch.ini`:** Make sure `launch.ini` is in the root of your internal HDD (`Hdd1:\launch.ini`) and that `Main.lua` keeps `scriptPermissions = { "filesystem" }`.
