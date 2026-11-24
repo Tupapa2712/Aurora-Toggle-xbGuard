@@ -22,7 +22,6 @@ By default, this script expects `xbGuard.xex` at `Hdd:\Servidores\xbGuard.xex` a
 1. Download and extract the `Toggle_xbGuard` folder (containing `Main.lua`) from [**Releases**](https://github.com/Tupapa2712/Aurora-Toggle-xbGuard/releases/latest).
 2. Copy the folder via FTP or Aurora's File Manager to:
    `Hdd1:\Aurora\User\Scripts\Utility\`
-   *(Note: If your Aurora folder has a different name—for example `AuroraLaunch`—replace `Aurora` with your actual folder name).*
 3. Run the script:
    - Inside Aurora, press the **Back** button on your controller.
    - Go to **Scripts** → **Alternar xbGuard (Online / Offline)**.
